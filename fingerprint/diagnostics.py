@@ -190,11 +190,14 @@ def _norm_logpdf(x, mu, var):
     return -0.5 * (np.log(2 * np.pi * var) + (x - mu) ** 2 / var)
 
 
-def gmm_bic(x, n_init=8, max_iter=500, tol=1e-10, rng=None):
+def gmm_bic(x, n_init=8, max_iter=500, tol=1e-10, rng=None, max_n=100000):
     """Fit 1- and 2-component 1D Gaussian mixtures (EM) and score by BIC.
-    BIC = k ln n - 2 ln L; lower is better; k = 2 (one comp), 5 (two comps)."""
+    BIC = k ln n - 2 ln L; lower is better; k = 2 (one comp), 5 (two comps).
+    If len(x) > max_n a random subsample of size max_n is used (EM cost)."""
     rng = rng or np.random.default_rng(0)
     x = np.asarray(x, dtype=float)
+    if len(x) > max_n:
+        x = rng.choice(x, size=max_n, replace=False)
     n = len(x)
     out = {"n": n}
     if n < 6 or np.var(x) == 0:
@@ -254,14 +257,21 @@ def binder(m):
     return float(1.0 - np.mean(m ** 4) / (3.0 * m2 ** 2))
 
 
-def binder_with_error(m, n_boot=200, rng=None):
+def binder_with_error(m, n_boot=200, rng=None, max_n=200000):
+    """Binder cumulant with a naive (i.i.d.) bootstrap error. For len(m) > max_n
+    the bootstrap runs on a random subsample and the error is rescaled by
+    sqrt(max_n / n)."""
     rng = rng or np.random.default_rng(0)
     m = np.asarray(m, dtype=float)
     u = binder(m)
     if len(m) < 3:
         return u, float("nan")
-    bs = [binder(m[rng.integers(0, len(m), len(m))]) for _ in range(n_boot)]
-    return u, float(np.nanstd(bs, ddof=1))
+    sub, scale = m, 1.0
+    if len(m) > max_n:
+        sub = rng.choice(m, size=max_n, replace=False)
+        scale = np.sqrt(max_n / len(m))
+    bs = [binder(sub[rng.integers(0, len(sub), len(sub))]) for _ in range(n_boot)]
+    return u, float(np.nanstd(bs, ddof=1) * scale)
 
 
 # ----------------------------------------------------------------- two-point function
