@@ -20,6 +20,8 @@ The mixed theory is P-invariant, which is an inference, so the second term vanis
 
 In SU(2) every gauge-invariant trace is real, so charge conjugation acts trivially and there is no C-odd order parameter. The pilot therefore tests **parity** only, through q(x), which is P-odd and T-odd. SU(2) at β ≈ 2.2–2.6 is used as a **rough** analogue of the SU(3) range β ≈ 5.9–6.4. The analogy is in lattice spacing only, and it is approximate.
 
+**Pilot results:** a short multi-volume run (SU(2), β = 2.3, 6⁴–12⁴) is summarized in [results/README_pilot.md](results/README_pilot.md). It is a lattice proxy only.
+
 ## What it does
 
 | Step | Implementation |

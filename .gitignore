@@ -9,3 +9,4 @@ smoke_output/
 pilot_output/
 *.npz
 .DS_Store
+results/runs/
