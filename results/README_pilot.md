@@ -74,10 +74,23 @@ This is the within-volume Var(q̄_ℓ) fit from each stream's `summary.txt`, wit
 
 With only one sub-block size and no surface term (dof = 0), the block fit returns a spurious positive Var_ν. Small blocks have χ_ℓ < χ because of flow smearing and boundary effects, and the README's "Known limitations" section already flags this bias. On 12⁴, where the surface term can be fitted, every stream is consistent with zero. The cross-volume fit is the one to trust.
 
+## Reproducing this pilot
+
+From a fresh clone (Python 3, about 33 minutes on an 8-core machine):
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements-plot.txt
+.venv/bin/python -m fingerprint.selftest --quick
+PYTHON=.venv/bin/python bash results/reproduce_pilot.sh
+```
+
+`results/reproduce_pilot.sh` holds the exact CLI invocations, seeds and block sizes: 8 single-thread streams (6⁴ seed 1 × 1200 configs, 8⁴ seed 1 × 1000, 10⁴ seeds 1–2 × 400, 12⁴ seeds 1–4 × 150), then `cross_volume_analysis.py`. A re-run on the same pinned numpy/scipy reproduced the raw per-stream Q, plaquette and two-point arrays and the committed `cross_volume_results.json` bit for bit. Different numpy/scipy versions may change the random streams.
+
 ## Files
 
 | File | Contents |
 |---|---|
+| `reproduce_pilot.sh` | Exact commands to regenerate `runs/` and rerun the analysis |
 | `cross_volume_analysis.py` | Merges streams, block bootstrap, fits, plot. Reads `runs/`, which is **not** in the repo (about 45 MB of raw per-stream output); rerun the CLI to regenerate it. |
 | `cross_volume_results.json` | All numbers |
 | `cross_volume_analysis_output.txt` | Script output |
