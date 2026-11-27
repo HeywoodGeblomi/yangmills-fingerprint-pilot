@@ -145,7 +145,58 @@ def main(argv=None):
     check("Binder: Gaussian ~ 0, two sharp peaks = 2/3", abs(u1) < 0.02 and abs(u2 - 2 / 3) < 1e-12,
           f"U_gauss = {u1:+.4f}, U_twopeak = {u2:.4f}")
 
-    # 10. (optional) Q near integer after flow on 8^4
+    # 10. beta = 0 Weyl moments of the plaquette variable (Lean: LoopGribovBypass.weylMoment,
+    #     with LoopGribovBypass.weylDensity_normalised). Ref: Yu. N. Berdinsky,
+    #     arXiv:2611.32690; Lean source at Zenodo 10.5281/zenodo.24058663.
+    #     On Haar links every plaquette U_p is Haar-distributed, and w = (1/2) Re tr U_p = a0 =
+    #     cos(theta) has the Weyl density (2/pi) sin^2(theta): odd moments vanish and
+    #     <w^2k> = C_k / 4^k = (2k)! / (4^k k! (k+1)!) = 1/4, 1/8, 5/64, 7/128 (k = 1..4).
+    #     Scope: conventions only (the 1/N Re tr normalisation and Haar sampling). The paper's
+    #     integral is real-time (e^{iS}) and the pilot is Euclidean (e^{-S}), so there is no
+    #     dynamical overlap at beta != 0, and this check has no mass-gap content.
+    #     Own fixed-seed RNG, so the result is deterministic and the shared stream is untouched.
+    t_lean = time.time()
+    rng_w = np.random.default_rng(24058663)
+    w = np.concatenate([plaquette_field(U_h, m, n)[..., 0].ravel()
+                        for U_h in (hot_start((4, 4, 4, 4), rng_w) for _ in range(10))
+                        for m in range(4) for n in range(m + 1, 4)])
+
+    def weyl_moment(p):
+        if p % 2:
+            return 0.0
+        k = p // 2
+        return float(special.factorial(2 * k) / (4 ** k * special.factorial(k) * special.factorial(k + 1)))
+
+    pulls = []
+    for p in range(1, 9):
+        # theoretical standard error sqrt(Var(w^p) / n); exact here, because distinct plaquettes
+        # at beta = 0 are pairwise independent (they share at most one Haar link)
+        se = np.sqrt((weyl_moment(2 * p) - weyl_moment(p) ** 2) / w.size)
+        pulls.append((np.mean(w ** p) - weyl_moment(p)) / se)
+    worst = float(np.max(np.abs(pulls)))
+    check("beta=0 Weyl moments <w^p> of plaquette, p = 1..8 (Lean: weylMoment; 4^4 x 10 Haar configs)",
+          worst < 5.0, f"max |pull| = {worst:.2f} sigma over {w.size} plaquettes "
+          f"(even exact: 1/4, 1/8, 5/64, 7/128; odd exact: 0)")
+
+    # 11. SU(2) Mandelstam identity w(AB) + w(AB^-1) = 2 w(A) w(B), w = (1/2) Re tr = a0
+    #     (Lean: LoopGribovBypass.wilson_mandelstam_two). Ref: arXiv:2611.32690,
+    #     Zenodo 10.5281/zenodo.24058663. Scope: algebraic only. It holds for any SU(2) pair, so
+    #     it tests qmul/dag conventions, not dynamics (no real-time/Euclidean overlap, no
+    #     mass-gap content). Tested on plaquette holonomies of the beta = 2.3 field U and on
+    #     fixed-seed Haar pairs.
+    A = plaquette_field(U, 0, 1).reshape(-1, 4)
+    B = plaquette_field(U, 2, 3).reshape(-1, 4)
+    a_h = su2.random_su2(rng_w, (2000,))
+    b_h = su2.random_su2(rng_w, (2000,))
+    viol = 0.0
+    for X, Y in ((A, B), (a_h, b_h)):
+        lhs = su2.qmul(X, Y)[..., 0] + su2.qmul(X, su2.dag(Y))[..., 0]
+        viol = max(viol, float(np.abs(lhs - 2 * X[..., 0] * Y[..., 0]).max()))
+    check("SU(2) Mandelstam w(AB) + w(AB^-1) = 2 w(A) w(B) (Lean: wilson_mandelstam_two)",
+          viol < 1e-14, f"max |violation| = {viol:.1e} over {len(A)} plaquette pairs + 2000 Haar pairs")
+    info("runtime of checks 10-11 (Berdinsky cross-checks)", f"{time.time() - t_lean:.2f}s")
+
+    # 12. (optional) Q near integer after flow on 8^4
     if not args.quick:
         dims8 = (8, 8, 8, 8)
         U8 = hot_start(dims8, rng)
